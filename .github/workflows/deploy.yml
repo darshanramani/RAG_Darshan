@@ -1,0 +1,27 @@
+name: Deploy to Hugging Face Space
+
+# Runs after CI passes on main. Needs:
+#   repo secret   HF_TOKEN  (Hugging Face token with "write" access)
+#   repo variable HF_SPACE  (e.g. darshanramani/ask-darshan)
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push to Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE: ${{ vars.HF_SPACE }}
+        run: |
+          test -n "$HF_TOKEN" && test -n "$HF_SPACE" || { echo "Set HF_TOKEN secret and HF_SPACE variable"; exit 1; }
+          git push --force "https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" HEAD:main

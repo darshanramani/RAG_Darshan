@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask Darshan</title>
+<meta name="description" content="Ask questions about Darshan Ramani's experience, skills and projects. Answers are grounded in his resume, with citations.">
+<style>
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --text: #1c1917; --muted: #78716c; --line: #e7e5e4;
+    --accent: #0f766e; --accent-soft: #ccfbf1; --user: #1c1917; --user-text: #fafaf9;
+    --radius: 14px; --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0c0a09; --surface: #1c1917; --text: #e7e5e4; --muted: #a8a29e; --line: #292524;
+            --accent: #2dd4bf; --accent-soft: #134e4a; --user: #e7e5e4; --user-text: #1c1917; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.55 var(--font); display: flex; justify-content: center; }
+  .app { width: 100%; max-width: 760px; display: flex; flex-direction: column; height: 100%; padding: 0 16px; }
+  header { padding: 22px 0 14px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; margin: 0; letter-spacing: -0.01em; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 13.5px; }
+  header a { color: var(--accent); text-decoration: none; }
+  .log { flex: 1; overflow-y: auto; padding: 20px 0; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 92%; }
+  .msg.user { align-self: flex-end; background: var(--user); color: var(--user-text); padding: 9px 14px; border-radius: var(--radius) var(--radius) 4px var(--radius); }
+  .msg.bot { align-self: flex-start; }
+  .msg.bot .body p { margin: 0 0 8px; } .msg.bot .body p:last-child { margin: 0; }
+  .msg.bot ul { margin: 4px 0 8px; padding-left: 20px; }
+  .cite { display: inline-block; font-size: 11px; line-height: 1; padding: 3px 5px; margin: 0 1px; border-radius: 5px;
+          background: var(--accent-soft); color: var(--accent); cursor: pointer; vertical-align: 1px; border: 0; font-family: inherit; }
+  details.sources { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  details.sources summary { cursor: pointer; user-select: none; }
+  .src { border-left: 2px solid var(--line); padding: 4px 0 4px 10px; margin: 8px 0; }
+  .src.hl { border-color: var(--accent); }
+  .src b { color: var(--text); font-weight: 600; }
+  .error { color: #b91c1c; }
+  .typing::after { content: "▍"; animation: blink 1s steps(1) infinite; color: var(--muted); }
+  @keyframes blink { 50% { opacity: 0; } }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px;
+          padding: 7px 12px; font: inherit; font-size: 13.5px; cursor: pointer; }
+  .chip:hover { border-color: var(--accent); }
+  form { display: flex; gap: 8px; padding: 12px 0 18px; border-top: 1px solid var(--line); }
+  input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); color: var(--text);
+          border-radius: 10px; padding: 11px 13px; font: inherit; outline: none; }
+  input:focus { border-color: var(--accent); }
+  button.send { border: 0; border-radius: 10px; background: var(--accent); color: var(--surface); font: inherit;
+                font-weight: 600; padding: 0 16px; cursor: pointer; }
+  button.send:disabled { opacity: .5; cursor: default; }
+  .foot { color: var(--muted); font-size: 12px; text-align: center; padding-bottom: 10px; margin-top: -8px; }
+  body.embed header { padding-top: 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Ask about Darshan Ramani</h1>
+    <p>AI/ML Engineer · answers come from his resume, with sources ·
+      <a href="https://www.linkedin.com/in/darshan-ramani/" target="_blank" rel="noopener">LinkedIn</a></p>
+  </header>
+  <main class="log" id="log" aria-live="polite">
+    <div class="msg bot"><div class="body"><p>Hi! I can answer questions about Darshan's experience, skills, projects and education. Try one of these:</p></div></div>
+    <div class="chips" id="chips">
+      <button class="chip">What RAG systems has he built?</button>
+      <button class="chip">Walk me through his work history</button>
+      <button class="chip">What's his MLOps and cloud experience?</button>
+      <button class="chip">Is he a fit for an LLM engineer role?</button>
+    </div>
+  </main>
+  <form id="form" autocomplete="off">
+    <input id="q" maxlength="500" placeholder="Ask a question about Darshan…" aria-label="Your question">
+    <button class="send" id="send" type="submit">Ask</button>
+  </form>
+  <div class="foot">AI-generated answers can be imperfect — verify important details with Darshan directly.</div>
+</div>
+<script>
+(() => {
+  const API = "/api/chat";
+  const log = document.getElementById("log"), form = document.getElementById("form"),
+        input = document.getElementById("q"), send = document.getElementById("send");
+  const history = [];
+  if (new URLSearchParams(location.search).has("embed")) document.body.classList.add("embed");
+
+  const esc = s => s.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  // Tiny, safe markdown: escape first, then bold, bullets, paragraphs, citation chips.
+  function render(md) {
+    const blocks = esc(md.trim()).split(/\n{2,}/);
+    return blocks.map(b => {
+      const lines = b.split("\n");
+      if (lines.every(l => /^\s*[-*•]\s+/.test(l)))
+        return "<ul>" + lines.map(l => "<li>" + inline(l.replace(/^\s*[-*•]\s+/, "")) + "</li>").join("") + "</ul>";
+      return "<p>" + lines.map(inline).join("<br>") + "</p>";
+    }).join("");
+  }
+  const inline = s => s.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+                       .replace(/\[(\d{1,2})\]/g, '<button class="cite" data-n="$1" title="Show source">$1</button>');
+
+  function add(cls, html) {
+    const el = document.createElement("div");
+    el.className = "msg " + cls; el.innerHTML = html;
+    log.appendChild(el); log.scrollTop = log.scrollHeight; return el;
+  }
+
+  function sourcesHtml(sources) {
+    if (!sources.length) return "";
+    return '<details class="sources"><summary>Sources (' + sources.length + ')</summary>' +
+      sources.map(s => '<div class="src" data-n="' + s.n + '"><b>[' + s.n + "] " + esc(s.title) + "</b><br>" +
+        esc(s.text) + "</div>").join("") + "</details>";
+  }
+
+  log.addEventListener("click", e => {
+    const c = e.target.closest(".cite"); if (!c) return;
+    const msg = c.closest(".msg"), det = msg.querySelector("details");
+    if (!det) return;
+    det.open = true;
+    msg.querySelectorAll(".src").forEach(s => s.classList.toggle("hl", s.dataset.n === c.dataset.n));
+    const t = msg.querySelector('.src[data-n="' + c.dataset.n + '"]'); t && t.scrollIntoView({block: "nearest", behavior: "smooth"});
+  });
+
+  document.getElementById("chips").addEventListener("click", e => {
+    if (e.target.classList.contains("chip")) ask(e.target.textContent);
+  });
+  form.addEventListener("submit", e => { e.preventDefault(); const q = input.value.trim(); if (q) ask(q); });
+
+  async function ask(q) {
+    const chips = document.getElementById("chips"); chips && chips.remove();
+    input.value = ""; send.disabled = true; input.disabled = true;
+    add("user", esc(q));
+    const bot = add("bot", '<div class="body typing"></div>');
+    const body = bot.querySelector(".body");
+    let text = "", sources = [];
+    try {
+      const res = await fetch(API, { method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({question: q, history: history.slice(-8)}) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || ("Request failed (" + res.status + ")"));
+      }
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const {value, done} = await reader.read(); if (done) break;
+        buf += dec.decode(value, {stream: true});
+        let i;
+        while ((i = buf.indexOf("\n\n")) >= 0) {
+          const line = buf.slice(0, i); buf = buf.slice(i + 2);
+          if (!line.startsWith("data:")) continue;
+          const ev = JSON.parse(line.slice(5));
+          if (ev.type === "sources") sources = ev.sources;
+          else if (ev.type === "token") { text += ev.text; body.innerHTML = render(text); log.scrollTop = log.scrollHeight; }
+          else if (ev.type === "error") throw new Error(ev.message);
+        }
+      }
+      body.classList.remove("typing");
+      body.innerHTML = render(text || "Sorry, I couldn't produce an answer.");
+      bot.insertAdjacentHTML("beforeend", sourcesHtml(sources));
+      history.push({role: "user", content: q}, {role: "assistant", content: text});
+    } catch (err) {
+      body.classList.remove("typing");
+      body.innerHTML = '<p class="error">' + esc(err.message || "Something went wrong.") + "</p>";
+    } finally {
+      send.disabled = false; input.disabled = false; input.focus(); log.scrollTop = log.scrollHeight;
+    }
+  }
+})();
+</script>
+</body>
+</html>

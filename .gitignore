@@ -1,0 +1,10 @@
+# original resumes contain phone/address — never commit them
+data/raw/*
+!data/raw/.gitkeep
+.chroma/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+eval/answers.json
+.venv/

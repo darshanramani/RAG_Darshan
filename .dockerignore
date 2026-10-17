@@ -1,0 +1,10 @@
+data/raw
+.git
+.github
+.venv
+.chroma
+tests
+eval
+__pycache__
+*.pyc
+.env
